@@ -249,13 +249,13 @@ PharmaCare runs on AWS. The original Render deployment stays live during the sta
 | --- | --- | --- |
 | Compute | Single EC2 `t3.micro` instance, Amazon Linux 2023, `i-01b189297307086ee`, `ap-south-1` | AWS App Runner was the original target but is account-gated for new AWS accounts (see "Known issues" below); EC2 was used instead. No ALB/NAT — kept deliberately simple and cheap. |
 | App runtime | Docker container (`Dockerfile`) running Gunicorn, managed by Docker Compose (`deploy/docker-compose.yml`) under a systemd unit (`pharmacare.service`) for restart-on-boot | |
-| Reverse proxy / TLS | Caddy container, `deploy/Caddyfile`. Serves a self-signed cert (`tls internal`) | The public domain is proxied through Cloudflare, which terminates public HTTPS; Cloudflare's SSL mode must be **Full** (not Full-strict) since the origin cert isn't publicly trusted. |
+| Reverse proxy / TLS | Caddy container, `deploy/Caddyfile`. Issues and auto-renews a real Let's Encrypt certificate | DNS points directly at the EC2 Elastic IP with nothing in front of it (no CDN/proxy), so Caddy's standard ACME HTTP-01 challenge handles public HTTPS end-to-end. |
 | Container registry | Amazon ECR, repository `pharmacare` (`564580818691.dkr.ecr.ap-south-1.amazonaws.com/pharmacare`), immutable tags | |
 | Database | **Unchanged** — external Supabase Postgres via `DATABASE_URL`. Not migrated; this was already an externally managed database before the AWS move. | |
 | Media storage | Amazon S3, bucket `pharmacare-media-564580818691`, only `/media/*` is public-read | Activated via `AWS_STORAGE_BUCKET_NAME` env var; falls back to local disk when unset (local dev unaffected). |
 | Secrets | AWS SSM Parameter Store, `SecureString`, under `/pharmacare/*` | `SECRET_KEY`, `DATABASE_URL`, `GROQ_API_KEY`, `SARVAM_API_KEY`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` |
 | CI/CD identity | GitHub Actions OIDC, no stored AWS keys. Role `pharmacare-github-actions-deploy`, scoped to `repo:UttamKuma04/Pharmacare:ref:refs/heads/main` | |
-| DNS/CDN | Cloudflare (existing), proxied to the EC2 Elastic IP `15.252.81.199` | |
+| DNS | Hostinger (plain DNS, no proxy/CDN layer), `A` records for apex and `www` pointing directly to the EC2 Elastic IP `15.252.81.199` | |
 
 ### Prerequisites
 
@@ -316,7 +316,6 @@ docker compose -f /opt/pharmacare/docker-compose.yml --project-directory /opt/ph
 ### Known issues / manual follow-ups
 
 - **AWS App Runner is blocked for this AWS account** (`564580818691`), which was only added to its AWS Organization on 2026-10-28. `CreateService` fails with `"Account ... can't create new App Runner services"` — a new-account trust restriction, not a quota or permissions issue (confirmed: quota shows 30 services allowed; a dry-run EC2 launch succeeds fine). This commonly clears in 24-48 hours, or can be expedited via a free AWS "Account & Billing" support case. EC2 was used instead for this migration; switching back to App Runner later is optional, not required.
-- Cloudflare SSL/TLS mode must be set to **Full** (done as part of this migration) — "Full (strict)" will break because the origin's Caddy certificate is self-signed, not publicly trusted.
 - The EC2 instance is a single point of failure (no auto-scaling/multi-AZ). Acceptable for current traffic; revisit if load grows.
 - Render resources (web service, any attached disk) are intentionally still live and untouched. Decommission only after an explicit go-ahead once the AWS deployment has stabilized.
 
@@ -330,7 +329,7 @@ docker compose -f /opt/pharmacare/docker-compose.yml --project-directory /opt/ph
 | S3 (media bucket) | Cents/month at current product-image volume |
 | SSM Parameter Store (standard params) | $0 |
 | Data transfer out | Usage-dependent, typically a few dollars/month at low traffic |
-| **Total** | **Roughly $0-15/month**, excluding Supabase (external DB), Groq/Sarvam API usage, and Cloudflare (all unchanged by this migration) |
+| **Total** | **Roughly $0-15/month**, excluding Supabase (external DB) and Groq/Sarvam API usage (both unchanged by this migration) |
 
 No ALB, NAT Gateway, or RDS instance was provisioned, per the cost-conscious design goal.
 
