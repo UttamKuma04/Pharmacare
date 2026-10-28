@@ -60,7 +60,7 @@ jobs:
           CMD_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
-            --parameters "commands=[\"sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=${IMAGE_TAG}/' /opt/pharmacare/.env\",\"cd /opt/pharmacare && aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${{ steps.ecr-login.outputs.registry }}\",\"cd /opt/pharmacare && docker compose pull app\",\"cd /opt/pharmacare && docker compose up -d app\",\"cd /opt/pharmacare && for i in 1 2 3 4 5 6; do docker compose exec -T app python manage.py migrate --noinput && break || sleep 5; done\",\"sleep 3\",\"docker compose -f /opt/pharmacare/docker-compose.yml --project-directory /opt/pharmacare exec -T app curl -s -o /dev/null -w HEALTHZ_%{http_code} http://localhost:8000/healthz/\"]" \
+            --parameters "commands=[\"sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=${IMAGE_TAG}/' /opt/pharmacare/.env\",\"cd /opt/pharmacare && aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${{ steps.ecr-login.outputs.registry }}\",\"cd /opt/pharmacare && docker compose pull app\",\"cd /opt/pharmacare && docker compose up -d app\",\"cd /opt/pharmacare && for i in 1 2 3 4 5 6; do docker compose exec -T app python manage.py migrate --noinput && break || sleep 5; done\",\"sleep 3\",\"cd /opt/pharmacare && docker compose exec -T app python -c \\\"import urllib.request as u; req=u.Request('http://localhost:8000/healthz/', headers={'Host':'pharamcare.shop'}); r=u.urlopen(req); print('HEALTHZ_'+str(r.status))\\\"\"]" \
             --region "$AWS_REGION" \
             --query "Command.CommandId" --output text)
 
