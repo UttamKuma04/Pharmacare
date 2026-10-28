@@ -1,0 +1,16 @@
+.git
+.github
+.venv
+venv
+env
+__pycache__
+*.pyc
+.env
+.env.*
+!.env.example
+db.sqlite3
+media/
+staticfiles/
+*.log
+test_chat.pdf
+test_chat.txt

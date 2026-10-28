@@ -1,0 +1,18 @@
+services:
+  app:
+    image: 564580818691.dkr.ecr.ap-south-1.amazonaws.com/pharmacare:${IMAGE_TAG}
+    restart: always
+    env_file: /opt/pharmacare/app.env
+    expose:
+      - "8000"
+  caddy:
+    image: caddy:2
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /opt/pharmacare/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+volumes:
+  caddy_data:
